@@ -45,8 +45,11 @@ This means **anyone** with the link can download it — no login required.
 ----
 
 ### 📸 Screenshots I Captured:
-- secret.txt file uploaded  
-- `secret.txt` permission showing “Everyone: Read”
+- secret.txt file uploaded ![image](https://github.com/user-attachments/assets/63410375-4d99-46c5-9736-4f8a354cca85)
+
+
+- `secret.txt` permission showing “Everyone: Read” ![image](https://github.com/user-attachments/assets/5c544945-60e1-4656-9443-0b5ebc61dd06)
+
 
 ----
 
@@ -84,7 +87,7 @@ Simulate an attacker discovering and stealing exposed data using Kali Linux and 
 ----
 
 ### 📸 Screenshots I Captured:
-- Terminal output showing stolen credentials
+-![VirtualBox_Kali Linux_08_07_2025_02_34_10](https://github.com/user-attachments/assets/16c06d5f-7a1c-4558-a0a4-0c9ffab49ff6)
 
 ----
 
@@ -96,73 +99,46 @@ Next, I will act as a **Cloud Security Analyst**, enable CloudTrail, and **detec
 
 ----
 
-## 🛡️ Phase 3: CloudTrail Detection & Log Analysis
+### ✅ Phase 3: Simulating an S3 Data Breach via Public Bucket Exposure
 
-### 🎯 Goal:
-Detect and investigate unauthorized access to a public S3 object using AWS CloudTrail logs.
+In this phase, I simulated a common AWS misconfiguration: a public S3 bucket exposing sensitive data.
 
-----
+#### 🔹 Actions Performed:
 
-### 🛠️ What I Did:
+- Created a new S3 bucket: `s3-breach-lab-bucket`
+- Uploaded a dummy sensitive file: `payload.txt`
+- Disabled **Block Public Access** for full public exposure
+- Configured **bucket policy** and **ACLs** to allow anonymous access
+- Simulated a breach by accessing the file from:
+  - My **Kali Linux VM**
+  - A browser on my host machine
 
-1. Navigated to **CloudTrail** in the AWS Console  
-2. Clicked **Create trail** and used:
-   - Trail name: `s3-breach-detection-trail`  
-   - New S3 bucket for logs: `jm-cloudtrail-logs`  
-   - Log file encryption: left **disabled**  
-3. In **Event types**:
-   - ✅ Enabled **Management events**  
-   - ✅ Enabled **Data events** → selected **S3** → **All current & future buckets**  
-4. Left **Insights** and **CloudWatch Logs** disabled  
-5. Clicked **Create trail** and waited 2–3 minutes  
+#### 🔹 Logging Setup:
 
-----
+- Enabled **Server Access Logging**, forwarding logs to `jm-access-logs-bucket`
+- Enabled **CloudTrail**, including:
+  - **Management events** (ALL)
+  - **Data events** for ALL S3 buckets (read + write)
 
-### 🔄 Simulated Another Attack
+#### ❌ What Didn’t Work:
 
-To trigger CloudTrail logging:
+Despite correctly configuring logging and waiting for hours, **no access logs or CloudTrail events appeared** — even after repeated anonymous file downloads.
 
-Switched to my Kali Linux machine and ran:
+This may be due to AWS processing delays, permission conflicts, or S3 log delivery constraints (e.g., CloudTrail not logging unauthenticated access unless from signed API requests).
 
-```bash
-curl https://jm-public-lab.s3.us-east-1.amazonaws.com/secret.txt
-```
+---
 
-This simulated an attacker re-downloading the exposed file after public exposure.
+#### 💡 Lessons Learned:
 
-----
+- CloudTrail is reliable for **API-level monitoring**, but not perfect for **anonymous S3 object access**
+- **Server Access Logging** can be slow to deliver, especially in test accounts
+- Always test logging setups with multiple access methods and verify delivery paths early
 
-### 🔍 Searched CloudTrail Logs
+---
 
-1. Returned to **CloudTrail > Event history**  
-2. Filtered by:
-   - **Event source** = `s3.amazonaws.com`  
-   - **Event name** = `GetObject`  
-3. Found a log showing:
-   - **EventTime**: Timestamp of the attack  
-   - **Source IP address**: My Kali machine’s IP  
-   - **Request parameters**: Showed `secret.txt` was accessed  
-   - **UserAgent**: curl/7.x — typical attacker signature  
+#### 🔐 Next Steps:
 
-----
+- Explore alternative detection methods (e.g., CloudFront + WAF logs)
+- Integrate GuardDuty for broader visibility
+- Try same breach scenario in a production-grade IAM/Org structure
 
-### 📸 Screenshots I Captured:
-- CloudTrail **Event history** page showing `GetObject` event  
-- Full expanded log details with:
-  - sourceIPAddress  
-  - requestParameters → `secret.txt`  
-  - userAgent = curl  
-
-----
-
-### ✅ Outcome:
-
-CloudTrail successfully captured the unauthorized access to my public S3 object.
-
-This confirmed that:
-- S3 Data Events were being logged correctly  
-- I could trace attacker actions using native AWS logging tools
-
-Next, I’ll explore how to **secure the bucket**, remove public access, and apply proper IAM policies.
-
-----

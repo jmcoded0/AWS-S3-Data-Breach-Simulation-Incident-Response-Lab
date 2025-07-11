@@ -142,3 +142,236 @@ This may be due to AWS processing delays, permission conflicts, or S3 log delive
 - Integrate GuardDuty for broader visibility
 - Try same breach scenario in a production-grade IAM/Org structure
 
+## 🛡️ Phase 4: Enabling Amazon GuardDuty for Threat Detection
+
+> **Goal:** Enable GuardDuty to monitor my AWS account for suspicious behavior such as API misuse, data exfiltration, or privilege abuse.
+
+....
+
+### 🎯 Objective:
+
+Set up Amazon GuardDuty in the same region (`us-east-1`) as my S3 and CloudTrail services, and prepare the environment to detect future attacks.
+
+---
+
+### 🛠️ What I Did:
+
+1. Logged into the AWS Console  
+2. Opened the **GuardDuty** service  
+3. Set region to **us-east-1** (matching my lab setup)  
+4. Clicked **“Enable GuardDuty”**  
+5. Accepted default settings:
+   - ✅ CloudTrail event monitoring  
+   - ✅ VPC Flow Logs  
+   - ✅ DNS Logs  
+
+---
+
+### ✅ Result:
+
+GuardDuty is now actively monitoring my AWS account and ready to detect malicious or unusual activity.
+
+Since this was enabled **after initial setup**, no findings appeared immediately.
+
+---
+
+### 📸 Screenshots Captured:
+
+- GuardDuty showing “Enabled” with no alerts yet  
+  ![guardduty-enabled-no-alerts](https://github.com/user-attachments/assets/b9ebe9b6-6abc-47a9-a3e7-82ca2772b670)
+
+---
+
+### 🔍 Next Step:
+
+Move forward to simulate a realistic AWS CLI-based attack using stolen credentials from Kali Linux to trigger real GuardDuty alerts.
+
+---
+
+## 🚨 Phase 4.5: GuardDuty Alert Triggered via AWS CLI Exfiltration
+
+> **Goal:** Simulate an actual API-based data breach using AWS CLI on Kali, and confirm if GuardDuty detects it.
+
+---
+
+### 🧪 What I Did:
+
+1. On Kali Linux, I installed and configured AWS CLI with stolen access keys
+2. Ran the following commands:
+
+    ```bash
+    aws s3 ls s3://s3-breach-lab-bucket
+    aws s3 cp s3://s3-breach-lab-bucket/secret.txt .
+    ```
+
+   - `s3:ListBucket` was blocked, but still logged
+   - `s3:GetObject` successfully downloaded the sensitive file
+
+---
+
+### 🎯 Outcome:
+
+After ~5 minutes, GuardDuty detected the API activity and triggered 2 findings:
+
+- **Medium Severity:** `GetObject` API invoked from remote Kali host  
+- **Low Severity:** `GetBucketOwnershipControls` invoked using root credentials
+
+---
+
+### 📸 Screenshots Captured:
+
+- ✅ Terminal download from Kali using AWS CLI  
+  ![kali-awscli-download]<img width="1920" height="909" alt="VirtualBox_Kali Linux_11_07_2025_00_57_44" src="https://github.com/user-attachments/assets/ab24735b-0657-43a6-90fa-4b5ab32e670c" />
+
+- ✅ GuardDuty showing real findings:  
+  ![guardduty-detection]<img width="1920" height="1010" alt="image" src="https://github.com/user-attachments/assets/975eec1f-c2db-4a34-9a82-88d342c81de5" />
+
+---
+
+### 🧠 Lessons Learned:
+
+- GuardDuty is highly effective for detecting real AWS misuse patterns
+- Even **blocked attempts** like `ListBucket` are logged and flagged
+- Combining CloudTrail + GuardDuty gives strong incident response visibility
+
+## 🛰️ Phase 5.2: Forwarding GuardDuty Alerts to Splunk via CloudWatch & Lambda
+
+> **Goal:** Simulate a real cloud SOC setup by forwarding AWS GuardDuty alerts to **Splunk** using **CloudWatch Logs** and a Lambda function. This allows me to visualize real-time detection alerts in my SIEM.
+
+### ✅ Step 1: Created a CloudWatch Log Group for GuardDuty Alerts
+
+Since GuardDuty no longer allows direct export to CloudWatch Logs from its settings, I manually created a dedicated log group where GuardDuty alerts will be pushed through EventBridge.
+
+1. Opened **AWS Console → CloudWatch**
+2. Navigated to **Log Groups**
+3. Clicked **“Create Log Group”**
+4. Named it:
+   ```
+   /aws/guardduty/logs
+   ```
+5. Created the log group successfully
+
+📸 **Screenshot – CloudWatch Log Group created**  
+![cloudwatch-log-group]<img width="1920" height="1009" alt="image" src="https://github.com/user-attachments/assets/f4b77ff4-7d0e-44f1-be4d-f9af49b00d08" />
+
+
+---
+
+### ✅ Step 2: Forwarded GuardDuty Alerts Using EventBridge Rule
+
+Instead of exporting from GuardDuty settings, I created an EventBridge rule to catch all **GuardDuty findings** and forward them into my log group.
+
+1. Opened **EventBridge → Rules → Create Rule**
+2. Named it: `forward-guardduty-to-logs`
+3. Selected **Event source**:  
+   - Service: `GuardDuty`  
+   - Event type: `GuardDuty Finding`
+4. Set the **Target** to:
+   - CloudWatch Log Group: `/aws/guardduty/logs`
+5. Created and activated the rule
+
+📸 **Screenshot – EventBridge rule connected to log group**  
+![eventbridge-rule]<img width="960" height="505" alt="Screenshot 2025-07-11 014207" src="https://github.com/user-attachments/assets/cbf44e41-ac0c-4e90-aa1d-e133d12c0dde" />
+
+### ✅ Step 2: Created HEC Token in Splunk
+
+1. Opened **Splunk Web Interface** on Kali
+2. Navigated to:
+   ```
+   Settings → Data Inputs → HTTP Event Collector
+   ```
+3. Enabled HEC if it was off
+4. Created a new token:
+   - Name: `aws-guardduty`
+   - Source type: `_json`
+   - Index: `main` or `aws`
+   - Kept port: `8088`
+
+📸 **Screenshot – Splunk HEC token configuration**  
+![splunk-hec-token]<img width="1920" height="909" alt="VirtualBox_Kali Linux_11_07_2025_02_10_00" src="https://github.com/user-attachments/assets/c5556803-7dec-4675-aa5f-2f614d995963" />
+
+---
+
+### ✅ Step 3: Created Lambda to Forward Logs
+
+1. Went to:
+   ```
+   Lambda → Create Function → Use a blueprint
+   ```
+2. Searched for:
+   ```
+   splunk-cloudwatch-logs-processor
+   ```
+3. Named the function: `ForwardGuardDutyToSplunk`
+4. Runtime: Python 3.x
+5. Set the environment variables:
+   - `SPLUNK_HEC_URL`: `https://<kali-ip>:8088`
+   - `SPLUNK_HEC_TOKEN`: `your-hec-token`
+6. Assigned execution role with these permissions:
+   - `logs:GetLogEvents`
+   - `logs:DescribeLogGroups`
+   - `logs:DescribeLogStreams`
+   - `logs:FilterLogEvents`
+
+📸 **Screenshot – Lambda function + env variables**  
+![lambda-env-config](https://github.com/user-attachments/assets/your-screenshot-link-here)
+
+---
+
+### ✅ Step 4: Subscribed Log Group to Lambda
+
+1. Went to:
+   ```
+   CloudWatch → Log Groups → /aws/guardduty/logs
+   ```
+2. Clicked **“Create subscription filter”**
+3. Set destination to:  
+   `ForwardGuardDutyToSplunk` (Lambda)
+4. Completed and saved the subscription
+
+📸 **Screenshot – CloudWatch subscription to Lambda**  
+![cloudwatch-subscription](https://github.com/user-attachments/assets/your-screenshot-link-here)
+
+---
+
+### ✅ Step 5: Triggered a GuardDuty Alert Again
+
+1. Switched to Kali
+2. Replayed the same simulated attack:
+   ```bash
+   aws s3 cp s3://s3-breach-lab-bucket/secret.txt .
+   ```
+3. Waited a few minutes to let GuardDuty detect it
+
+📸 **Screenshot – Terminal command to trigger alert**  
+![trigger-alert-kali](https://github.com/user-attachments/assets/your-screenshot-link-here)
+
+---
+
+### ✅ Step 6: Verified Alerts in Splunk
+
+1. Opened Splunk Search
+2. Searched:
+   ```spl
+   index=main sourcetype=_json guardduty
+   ```
+3. Found alert from GuardDuty forwarded as JSON log
+
+📸 **Screenshot – GuardDuty alert in Splunk search**  
+![splunk-alert-result](https://github.com/user-attachments/assets/your-screenshot-link-here)
+
+---
+
+### 🧠 Lessons Learned
+
+> This phase showed how real cloud incidents can be wired into SIEM platforms using native AWS tools like CloudWatch and Lambda. It simulates enterprise-grade security monitoring.
+
+---
+
+### 🧪 Future Enhancement
+
+- Parse and extract fields in Splunk using `props.conf` for cleaner dashboards  
+- Add email/Slack alerting using CloudWatch Alarms  
+- Automate IAM key revocation on alert using Lambda + EventBridge
+
+

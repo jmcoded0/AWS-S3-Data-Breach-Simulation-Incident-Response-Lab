@@ -305,16 +305,19 @@ Instead of exporting from GuardDuty settings, I created an EventBridge rule to c
 3. Named the function: `ForwardGuardDutyToSplunk`
 4. Runtime: Python 3.x
 5. Set the environment variables:
-   - `SPLUNK_HEC_URL`: `https://<kali-ip>:8088`
-   - `SPLUNK_HEC_TOKEN`: `your-hec-token`
+   - `SPLUNK_HEC_URL`: `https://192.168.117.4:8088`
+   - `SPLUNK_HEC_TOKEN`: `f05776b0-3e66-436d-955c-237fa63ae445`
 6. Assigned execution role with these permissions:
    - `logs:GetLogEvents`
    - `logs:DescribeLogGroups`
    - `logs:DescribeLogStreams`
    - `logs:FilterLogEvents`
 
-📸 **Screenshot – Lambda function + env variables**  
-![lambda-env-config](https://github.com/user-attachments/assets/your-screenshot-link-here)
+📸 **Screenshot – Lambda function**  
+![lambda-env-config]<img width="1920" height="1009" alt="image" src="https://github.com/user-attachments/assets/e5f0923d-312c-418c-b9e6-e5e1616a5dd4" />
+ + env variables <img width="960" height="505" alt="Screenshot 2025-07-11 022835" src="https://github.com/user-attachments/assets/7c4a6ca6-6473-44fa-9ebc-0e53c50d3ea9" />
+
+
 
 ---
 

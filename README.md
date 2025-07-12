@@ -1,101 +1,116 @@
 # ☁️ AWS S3 Data Breach Simulation & Incident Response Lab
 
-> **Project Goal:** Simulate a real-world AWS S3 bucket data breach scenario, where sensitive data is publicly accessible, an attacker exploits the misconfiguration, and you (the cloud security analyst) detect, investigate, and remediate the incident using AWS CloudTrail and Splunk.
+> **Goal:** Simulate a real-world AWS cloud data breach caused by a publicly exposed S3 bucket. Then act as the cloud security analyst to detect the breach using AWS CloudTrail, GuardDuty, Lambda, SQS, and Splunk.
 
 ---
 
 ## 🧠 Scenario Overview
 
-A developer mistakenly set an S3 bucket to public, exposing confidential files. An attacker discovers and downloads the data. This lab simulates that breach, then walks through how a security analyst would:
-- Identify the exposed data
-- Detect the unauthorized access
-- Investigate via CloudTrail logs
-- Analyze logs in Splunk
-- Remediate the issue and prevent future exposures
+A developer mistakenly made an S3 bucket public, exposing a sensitive file. An external attacker (using Kali Linux) discovers the file and downloads it. This lab walks through the full breach simulation — from misconfiguration and attack to detection, log forwarding, and Splunk-based incident analysis.
+
+You’ll see:
+- How attackers can exfiltrate data from misconfigured S3
+- How to detect malicious behavior using CloudTrail and GuardDuty
+- How to forward AWS logs into Splunk for real-time SIEM visibility
+- How to investigate, visualize, and respond to cloud incidents
 
 ---
 
 ## 🧪 Lab Architecture
 
-| Component       | Purpose                                      |
-|----------------|----------------------------------------------|
-| AWS S3 Bucket   | Stores the sensitive file (misconfigured)   |
-| Kali Linux VM   | Attacker machine used to access the bucket  |
-| AWS CloudTrail  | Captures S3 activity logs                   |
-| Splunk          | Used for log analysis and detection         |
-| GitHub          | Documentation and final report              |
+| Component         | Role                                              |
+|------------------|---------------------------------------------------|
+| **S3 Bucket**     | Stores sensitive file (`secret.txt`, `payload.txt`) |
+| **Kali Linux VM** | Simulates attacker actions via `curl` and AWS CLI |
+| **AWS CloudTrail**| Captures S3 API activity and management events     |
+| **GuardDuty**     | Detects suspicious AWS activity                   |
+| **Lambda + SQS**  | Transports alerts from AWS to Splunk              |
+| **Splunk**        | Centralizes log data for threat hunting & analysis|
 
 ---
 
 ## 🔍 Phases
 
 ### ✅ Phase 1: S3 Bucket Setup & Misconfiguration
-- Create a vulnerable S3 bucket
-- Upload fake sensitive data
-- Make the bucket publicly readable
+- Created public S3 buckets
+- Uploaded fake sensitive files (`secret.txt`, `payload.txt`)
+- Enabled public access through ACLs and bucket policy
 
 ### ✅ Phase 2: Simulated External Attack
-- Access and download the exposed file from Kali
-- Capture attacker evidence (IP, timestamps)
+- Accessed and downloaded files using `curl` on Kali
+- Simulated exfiltration using AWS CLI (API-based breach)
 
-### ✅ Phase 3: Detection via CloudTrail
-- Enable CloudTrail + S3 data events
-- Search for `ListBucket`, `GetObject` actions
+### ✅ Phase 3: Detection & Logging
+- Enabled CloudTrail and S3 data event logging
+- Confirmed logs showed `GetObject` and `ListBucket` events
+- Enabled GuardDuty and confirmed real alerts were generated
 
-### ✅ Phase 4: Log Analysis with Splunk
-- Ingest CloudTrail logs into Splunk
-- Search for attacker behavior using SPL
+### ✅ Phase 4: Forwarding Logs to Splunk
+- Created Lambda function to push GuardDuty logs to Splunk via HEC
+- Configured SQS to forward S3 events
+- Verified log ingestion in Splunk (CloudTrail, GuardDuty, S3)
 
-### ✅ Phase 5: Remediation
-- Remove public access from the bucket
-- Apply bucket policy to block public access
-- Re-test to confirm it’s secure
+### ✅ Phase 5: Splunk SIEM Analysis
+- Used SPL to search for `GetObject`, `ListBucket`, attacker IPs
+- Built basic visualizations (top events chart)
+- Confirmed attacker activity via logs in real time
 
-### ✅ Phase 6: Documentation & Lessons Learned
-- Screenshots of each phase
-- Markdown write-up with detection queries
-- What went wrong and how to prevent it
+### ✅ Phase 6: Documentation & Wrap-Up
+- Included all terminal commands, screenshots, queries
+- Wrote up lessons learned, challenges faced, and enhancement ideas
 
 ---
 
 ## ⚙️ Tools Used
 
-- AWS Console + CLI
-- AWS S3, IAM, CloudTrail
-- Kali Linux, cURL, Burp Suite
-- Splunk Enterprise (local VM)
-- Markdown + GitHub
+- **AWS Console** (S3, CloudTrail, Lambda, SQS, IAM, GuardDuty)
+- **Kali Linux** (curl, AWS CLI)
+- **Splunk Enterprise** (local VM with AWS Add-on)
+- **Markdown + GitHub** for full documentation
 
 ---
 
-## 📸 Screenshots (Will Be Added)
+## 📸 Screenshots Included
 
-- [ ] S3 public bucket warning
-- [ ] Kali Linux downloading the file
-- [ ] CloudTrail log showing `GetObject`
-- [ ] SPL search in Splunk
-- [ ] Post-remediation ACL status
+- ✅ S3 misconfiguration and exposed files
+- ✅ Terminal view of Kali attack
+- ✅ GuardDuty findings for `GetObject` and privilege abuse
+- ✅ Splunk search results + visualizations
+- ✅ Lambda/SQS/HEC setup and log forwarding pipeline
 
 ---
 
-## 🧠 Lessons Learned
-_(To be updated as project progresses)_
+## 🧠 Final Lessons Learned
 
-- Misconfigured S3 buckets are a real threat
-- CloudTrail must be enabled to detect abuse
-- Splunk helps correlate attacker behavior quickly
-- Always validate permissions before deploying to cloud
+- Misconfigured S3 buckets are a top attack vector
+- CloudTrail doesn’t log unauthenticated access — API-based attacks are more detectable
+- GuardDuty is effective for identifying real AWS abuse patterns
+- Lambda + SQS + Splunk integration enables real-time SOC visibility
+- Testing and troubleshooting permissions is a huge part of cloud security work
 
 ---
 
 ## 📅 Status
-> **Work in progress (started: July 8, 2025)**  
-> Updates and screenshots will be added as I complete each phase.
+> ✅ **Project Completed:** July 11, 2025  
+> Every phase is documented with screenshots, commands, queries, and explanations.
 
 ---
+![Project Status](https://img.shields.io/badge/status-completed-brightgreen?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
+
+# ☁️ AWS S3 Data Breach Simulation & Incident Response Lab
+
+> **Goal:** Simulate a real-world AWS cloud data breach caused by a publicly exposed S3 bucket. Then act as the cloud security analyst to detect the breach using AWS CloudTrail, GuardDuty, Lambda, SQS, and Splunk.
+
+🔗 **Live Project Repo:** [[github.com/jmcoded/aws-s3-breach-lab](https://github.com/jmcoded/aws-s3-breach-lab)](https://github.com/jmcoded0/-AWS-S3-Data-Breach-Simulation-Incident-Response-Lab/blob/main/documenting.md)
+
+📸 **Preview Screenshot:**  
+![preview](https://github.com/user-attachments/assets/4d2d280a-09ee-4287-a173-009913b32da5)
 
 ## 🙌 Author
+
 **Johnson Mathew (jmcoded)**  
-Cloud & Security Enthusiast | GitHub: [@jmcoded](https://github.com/jmcoded)
+Cloud & Security Enthusiast  
+GitHub: [@jmcoded](https://github.com/jmcoded)
 
 ---

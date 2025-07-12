@@ -102,7 +102,7 @@ You’ll see:
 
 > **Goal:** Simulate a real-world AWS cloud data breach caused by a publicly exposed S3 bucket. Then act as the cloud security analyst to detect the breach using AWS CloudTrail, GuardDuty, Lambda, SQS, and Splunk.
 
-🔗 **Live Project Repo:**[📄 Full Documentation](https://github.com/jmcoded0/-AWS-S3-Data-Breach-Simulation-Incident-Response-Lab/blob/main/documenting.md)
+🔗 **Live Project Repo:**[📄 Full Documentation](https://github.com/jmcoded0/AWS-S3-Data-Breach-Simulation-Incident-Response-Lab/blob/main/documenting.md)
 
 📸 **Preview Screenshot:**  
 ![preview](https://github.com/user-attachments/assets/4d2d280a-09ee-4287-a173-009913b32da5)

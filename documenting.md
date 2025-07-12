@@ -317,64 +317,305 @@ Instead of exporting from GuardDuty settings, I created an EventBridge rule to c
 ![lambda-env-config]<img width="1920" height="1009" alt="image" src="https://github.com/user-attachments/assets/e5f0923d-312c-418c-b9e6-e5e1616a5dd4" />
  + env variables <img width="960" height="505" alt="Screenshot 2025-07-11 022835" src="https://github.com/user-attachments/assets/7c4a6ca6-6473-44fa-9ebc-0e53c50d3ea9" />
 
-
-
 ---
 
 ### ✅ Step 4: Subscribed Log Group to Lambda
 
 1. Went to:
-   ```
-   CloudWatch → Log Groups → /aws/guardduty/logs
-   ```
+    ```
+    CloudWatch → Log Groups → /aws/guardduty/logs
+    ```
 2. Clicked **“Create subscription filter”**
 3. Set destination to:  
-   `ForwardGuardDutyToSplunk` (Lambda)
+    `ForwardGuardDutyToSplunk` (Lambda)
 4. Completed and saved the subscription
 
 📸 **Screenshot – CloudWatch subscription to Lambda**  
-![cloudwatch-subscription](https://github.com/user-attachments/assets/your-screenshot-link-here)
+![cloudwatch-subscription]<img width="1920" height="1010" alt="image" src="https://github.com/user-attachments/assets/0818c6d7-a4b4-4d8f-acba-7d6f03076497" />
+
 
 ---
 
-### ✅ Step 5: Triggered a GuardDuty Alert Again
+### ✅ Step 5: Triggered GuardDuty Alert Again from Kali
 
-1. Switched to Kali
-2. Replayed the same simulated attack:
-   ```bash
-   aws s3 cp s3://s3-breach-lab-bucket/secret.txt .
-   ```
-3. Waited a few minutes to let GuardDuty detect it
+To confirm everything was wired properly, I triggered the attack again from Kali:
 
-📸 **Screenshot – Terminal command to trigger alert**  
-![trigger-alert-kali](https://github.com/user-attachments/assets/your-screenshot-link-here)
+```
+aws s3 cp s3://s3-breach-lab-bucket/secret.txt .
+```
 
----
+📸 **Screenshot – Kali terminal showing the `aws s3 cp` command**  
+![trigger-alert-kali]<img width="1920" height="909" alt="VirtualBox_Kali Linux_12_07_2025_04_12_44" src="https://github.com/user-attachments/assets/38cb3879-903b-4d0e-bc72-1cb685bfc014" />
 
-### ✅ Step 6: Verified Alerts in Splunk
-
-1. Opened Splunk Search
-2. Searched:
-   ```spl
-   index=main sourcetype=_json guardduty
-   ```
-3. Found alert from GuardDuty forwarded as JSON log
-
-📸 **Screenshot – GuardDuty alert in Splunk search**  
-![splunk-alert-result](https://github.com/user-attachments/assets/your-screenshot-link-here)
 
 ---
 
-### 🧠 Lessons Learned
+### ✅ Step 6: GuardDuty Triggered Alerts Again
 
-> This phase showed how real cloud incidents can be wired into SIEM platforms using native AWS tools like CloudWatch and Lambda. It simulates enterprise-grade security monitoring.
+1. Went to **AWS Console → GuardDuty**
+2. After a few minutes, fresh findings appeared:
+   - ✅ API call from unusual IP (Kali)
+   - ✅ GetObject flagged as suspicious activity
+
+📸 **Screenshot – GuardDuty showing new findings**  
+![guardduty-alerts]<img width="1920" height="1010" alt="image" src="https://github.com/user-attachments/assets/5e077fff-447b-4316-87bb-3f1337ec33df" />
+
+### ✅ Step 7: Created SQS Queue to Bridge S3 and Splunk
+
+To forward S3 event notifications (like object access/download) to Splunk, I created an SQS queue:
+
+1. Opened:
+
+    ```
+    AWS Console → SQS
+    ```
+
+2. Clicked **"Create queue"**
+3. Selected:
+   - **Queue type:** Standard  
+   - **Queue name:** `cloudtrail-to-splunk`
+4. Kept default settings, created queue successfully
+
+📸 **Screenshot – SQS Queue created**  
+![sqs-created]<img width="1920" height="1010" alt="image" src="https://github.com/user-attachments/assets/a2f8a271-536f-479b-be49-6ff2998ae012" />
+
 
 ---
 
-### 🧪 Future Enhancement
+### ✅ Step 8: Configured S3 Event Notification to Send to SQS
 
-- Parse and extract fields in Splunk using `props.conf` for cleaner dashboards  
-- Add email/Slack alerting using CloudWatch Alarms  
-- Automate IAM key revocation on alert using Lambda + EventBridge
+I set up the breached S3 bucket to notify the SQS queue every time the `payload.txt` file was accessed or downloaded.
+
+1. Went to:
+
+    ```
+    S3 → s3-breach-lab-bucket → Properties
+    ```
+
+2. Under **Event notifications**, clicked **Create event notification**
+3. Gave it a name: `ForwardToSQS`
+4. Selected:
+   - **Event type:** All object read events  
+   - **Prefix filter:** `payload.txt`  
+   - **Destination:** `SQS`  
+   - **Queue:** `S3EventQueue`
+5. Saved the configuration
+
+📸 **Screenshot – S3 Event Notification to SQS**  
+![s3-event-notification]<img width="1920" height="1010" alt="image" src="https://github.com/user-attachments/assets/85821aa4-b107-4beb-8244-58a795a680cf" />
+
+
+---
+
+### ✅ Step 9: Attached IAM Permissions to S3 & Lambda
+
+To allow S3 to send events to SQS and allow Lambda to poll them:
+
+1. Created a new IAM role: `S3ToSQSForwarder`
+2. Attached the following policy:
+
+    ````json
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "sqs:SendMessage",
+            "sqs:GetQueueAttributes",
+            "sqs:GetQueueUrl"
+          ],
+          "Resource": "arn:aws:logs:us-east-1:838595597848:log-group:/aws/lambda/ForwardGuardDutyToSplunk"
+        }
+      ]
+    }
+    ````
+
+3. Also ensured Lambda had permissions for:
+   - `sqs:ReceiveMessage`
+   - `sqs:DeleteMessage`
+
+📸 **Screenshot – IAM Role attached with correct policy**  
+![iam-policy-attach]<img width="1920" height="1010" alt="image" src="https://github.com/user-attachments/assets/8a34ce42-f45c-439f-af4e-9851033fd6f8" />
+
+
+---
+
+### ✅ Step 10: Verified SQS Delivery via CloudWatch Logs
+
+To check if the SQS queue was receiving messages from S3:
+
+1. Opened:
+
+    ```
+    CloudWatch → Log Groups
+    ```
+
+2. Monitored the Lambda log group for new event delivery logs
+3. Saw logs showing payload received from SQS (base64-encoded JSON)
+
+📸 **Screenshot – CloudWatch logs showing SQS activity**  
+![cloudwatch-sqs-log]<img width="1920" height="1010" alt="image" src="https://github.com/user-attachments/assets/96f29a5d-7114-4929-967b-4ec56ef9c0b9" />
+
+
+---
+### ✅ Step 11: Installed & Configured AWS Add-on for Splunk
+
+To receive logs from GuardDuty and S3 activity, I used the **Splunk Add-on for AWS**.
+
+1. On **Splunk Web Interface (Kali)**:
+    ```
+    Apps → Manage Apps → Install app from file
+    ```
+2. Uploaded:
+    ```
+    splunk-add-on-for-amazon-web-services_####.tgz
+    ```
+3. Installed and restarted Splunk when prompted
+
+📸 **Screenshot – AWS Add-on Installed on Splunk**  
+![splunk-aws-addon-installed]<img width="1920" height="909" alt="VirtualBox_Kali Linux_12_07_2025_04_57_37" src="https://github.com/user-attachments/assets/f8e039d2-466a-47c7-b9bd-7b734f3afc2f" />
+
+
+---
+
+### ✅ Step 12: Configured AWS Account in Splunk Web
+
+Before creating any inputs, I added my AWS account credentials in Splunk:
+
+1. Went to:
+
+    ```
+    Apps → Splunk Add-on for AWS → Configuration → Add AWS Account
+    ```
+
+2. Entered:
+   - **Name:** `aws-breach-lab`
+   - **Key ID & Secret:** IAM credentials with SQS & CloudTrail read access
+   - **Account Type:** Keys only
+
+📸 **Screenshot – AWS Account Configured**  
+![splunk-aws-account]<img width="1920" height="909" alt="image" src="https://github.com/user-attachments/assets/02c97de8-ac31-4734-8a19-c33b216153b9" />
+
+---
+
+### ✅ Step 13: Manually Edited `inputs.conf` (Optional)
+
+To ensure SQS-based S3 input was picked up correctly, I also edited `inputs.conf` directly:
+
+```bash
+sudo nano /opt/splunk/etc/apps/Splunk_TA_aws/local/inputs.conf
+```
+
+**Added the config:**
+
+```ini
+[aws_sqs_based_s3://aws-guardduty-sqs]
+aws_account = aws-breach-lab
+sqs_queue = cloudtrail-to-splunk
+sourcetype = _json
+index = main
+```
+
+📸 **Screenshot – Edited inputs.conf File**  
+![inputs-conf]<img width="1920" height="909" alt="VirtualBox_Kali Linux_12_07_2025_05_01_26" src="https://github.com/user-attachments/assets/5820f1a9-d87a-40c7-bc04-6d07676bea34" />
+
+---
+
+### ✅ Step 14: Restarted Splunk to Apply Input Settings
+
+```bash
+sudo /opt/splunk/bin/splunk restart
+```
+
+📸 **Screenshot – Splunk Restart from Terminal**  
+![splunk-restart]<img width="1920" height="909" alt="VirtualBox_Kali Linux_12_07_2025_05_02_37" src="https://github.com/user-attachments/assets/e8cc021d-bce0-45ed-88d5-127680ca8621" />
+
+---
+
+### ✅ Step 15: Verified AWS Alert in Splunk Search
+
+1. Opened **Splunk Search**
+2. Ran this query:
+
+```spl
+index=cloudtrail sourcetype=aws:cloudtrail "GetObject"
+
+```
+
+3. ✅ Verified logs from:
+   - GuardDuty alert
+   - S3 object access from Kali
+   - Lambda forwarding via SQS
+
+📸 **Screenshot – GuardDuty Alert Successfully Logged in Splunk**  
+![splunk-final-alert]<img width="1920" height="909" alt="VirtualBox_Kali Linux_12_07_2025_05_17_13" src="https://github.com/user-attachments/assets/2fa6227e-d8a0-4278-8cbe-c30ccc321bec" />
+
+---
+---
+
+### 📊 Bonus Step: Visualizing AWS Events in Splunk
+
+To better understand what types of AWS API actions were happening in the account, I used Splunk to generate a chart of the most frequent event names.
+
+#### ✅ Search Query Used:
+
+```spl
+index=cloudtrail sourcetype=aws:cloudtrail
+| top eventName
+```
+
+#### 📈 Result:
+
+This search produced a clean bar chart showing the top API actions (e.g., `GetObject`, `ListBucket`, etc.) captured by CloudTrail. It confirmed that the `GetObject` action used in the attack was logged and visible.
+
+📸 **Screenshot – Splunk Visualization of Top AWS API Events**  
+![splunk-top-eventname]<img width="1920" height="909" alt="VirtualBox_Kali Linux_12_07_2025_05_53_04" src="https://github.com/user-attachments/assets/4d2d280a-09ee-4287-a173-009913b32da5" />
+
+
+---
+
+### 🧠 Final Lessons Learned
+
+- ✅ AWS GuardDuty + S3 alerts can be streamed to Splunk in near real-time
+- ✅ Lambda and SQS act as middleware to deliver event data
+- ✅ Manual and GUI-based configuration helped troubleshoot ingestion issues
+- ✅ Learned how to simulate real AWS security incidents and verify detection in SIEM
+
+---
+---
+
+### 🧱 Challenges Faced
+
+- 💤 **CloudTrail log delay**: After triggering S3 events or API activity, logs didn’t appear immediately. Took several minutes to show up in Splunk.
+- 🔍 **No logging for anonymous S3 access**: Realized that public (unauthenticated) downloads aren't tracked in CloudTrail. Had to simulate API-based access instead.
+- ⚙️ **Lambda + SQS config was tricky**: Took multiple retries to get the IAM roles and policies right before logs would flow.
+- 📦 **Splunk input debugging**: Even after setting everything up, I had to manually edit `inputs.conf` and restart Splunk to get the logs flowing.
+- 🧪 **Testing was repetitive**: Triggering multiple alerts and verifying them in GuardDuty/Splunk required patience and double-checking.
+
+---
+
+### 🎯 Final Thoughts
+
+This lab pushed me deep into **real-world cloud security operations** — from misconfigurations and simulated data breaches to configuring detection pipelines using **CloudTrail**, **GuardDuty**, **Lambda**, **SQS**, and **Splunk**.
+
+It wasn’t easy. I had to troubleshoot permissions, wait for logs, and manually wire up integrations — but that’s exactly how it works in the field.
+
+🛡️ **This wasn’t just a project. It was hands-on SOC experience.**
+
+I now understand:
+
+- How cloud misconfigurations can lead to data breaches  
+- How to simulate realistic cloud attacks from an attacker’s perspective  
+- How to configure detection and response tools across AWS + Splunk  
+- And how to turn logs into **real, actionable security insights**
+
+---
+
+> ✅ **Project Completed:** _AWS S3 Data Breach Simulation & Cloud Incident Response Lab_
+
+🔗 All screenshots, attack simulations, Splunk queries, and configurations are included.
+
+
 
 

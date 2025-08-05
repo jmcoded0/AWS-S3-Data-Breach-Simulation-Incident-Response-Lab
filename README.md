@@ -1,4 +1,4 @@
-# ☁️ AWS S3 Data Breach Simulation & Incident Response Lab
+# ☁️ AWS S3 Data Breach Simulation & Response
 
 > **Goal:** Simulate a real-world AWS cloud data breach caused by a publicly exposed S3 bucket. Then act as the cloud security analyst to detect the breach using AWS CloudTrail, GuardDuty, Lambda, SQS, and Splunk.
 
@@ -67,16 +67,6 @@ You’ll see:
 - **Kali Linux** (curl, AWS CLI)
 - **Splunk Enterprise** (local VM with AWS Add-on)
 - **Markdown + GitHub** for full documentation
-
----
-
-## 📸 Screenshots Included
-
-- ✅ S3 misconfiguration and exposed files
-- ✅ Terminal view of Kali attack
-- ✅ GuardDuty findings for `GetObject` and privilege abuse
-- ✅ Splunk search results + visualizations
-- ✅ Lambda/SQS/HEC setup and log forwarding pipeline
 
 ---
 
